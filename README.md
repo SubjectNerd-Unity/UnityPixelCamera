@@ -26,7 +26,15 @@ This package simplifies making a Unity camera render to exact pixel units, for u
 ## Caveats ##
 
 * If a camera or sprite is out of alignment with the pixel grid, unwanted artifacts may occur
-* This system will not automatically scale according to the window/viewport size
+* Pixel Camera will not automatically zoom in or out according to the window/viewport size
+
+## Technical Details ##
+
+Pixel camera takes the size of the screen and finds the pixel size required to cover the entire screen at the given settings.
+
+The camera orthographic size is modified so that the render fits the calculated size, and the output is sent to a RenderTexture.
+
+A dummy camera that renders nothing is created, and the `OnPostRender()` function is used to draw the output of the attached camera onto the screen using GL commands.
 
 ## API ##
 
@@ -34,15 +42,15 @@ This package simplifies making a Unity camera render to exact pixel units, for u
 
 __ZoomLevel__ : float
 
-The pixel scale used by the camera
+The pixel zoom scale used by the camera.
 
 __PixelsPerUnit__ : float
 
-The pixels per unit value used by the camera
+The pixels per unit value used by the camera.
 
 __CameraMaterial__ : Material
 
-The Material used to render the camera output, setting to `null` will use the default material. Pixel camera will set the camera output as the `_MainTex` of the given material.
+The Material used to render the camera output, setting to `null` will use the default material. Pixel Camera sets the camera output as the `_MainTex` texture of the given material.
 
 __AspectStretch__ : Vector2
 
@@ -54,8 +62,10 @@ Access to the RenderTexture used as the camera output.
 
 __CameraSize__ : int[]
 
-Actual pixel size of the camera, as an array.
+Actual pixel size of the camera, as an integer array.
 
 ### Methods ###
 
 __ForceRefresh()__ : void
+
+Force the camera to recalculate rendering sizes.
