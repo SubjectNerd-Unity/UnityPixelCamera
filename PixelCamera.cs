@@ -55,6 +55,34 @@ namespace SubjectNerd.Utilities
 			}
 		}
 
+		public float ZoomLevel
+		{
+			get { return zoomLevel; }
+			set { zoomLevel = value; }
+		}
+
+		public float PixelsPerUnit
+		{
+			get { return pixelsPerUnit; }
+			set { pixelsPerUnit = value; }
+		}
+
+		public Vector2 AspectStretch
+		{
+			get
+			{
+				if (advancedSettings == null)
+					return Vector2.one;
+				return advancedSettings.aspectStretch;
+			}
+			set
+			{
+				if (advancedSettings == null)
+					return;
+				advancedSettings.aspectStretch = value;
+			}
+		}
+
 		public RenderTexture RenderTexture { get { return renderTexture; } }
 		public int[] CameraSize { get { return new int[] {renderTexture.width, renderTexture.height}; } }
 
