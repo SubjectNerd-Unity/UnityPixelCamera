@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace SubjectNerd.Utilities
@@ -9,10 +7,18 @@ namespace SubjectNerd.Utilities
 	[RequireComponent(typeof(Camera))]
 	public class PixelCamera : MonoBehaviour
 	{
+		[Serializable]
+		protected class AdvancedSettings
+		{
+			public Material cameraMaterial;
+			public Vector2 aspectStretch = Vector2.one;
+		}
+
 		[SerializeField] protected Camera cam;
 		[SerializeField] protected float pixelsPerUnit = 100;
 		[SerializeField] protected float zoomLevel = 1f;
-		[SerializeField] protected Material cameraMaterial;
+		[Space]
+		[SerializeField] protected AdvancedSettings advancedSettings;
 
 		protected RenderTexture renderTexture;
 
@@ -32,24 +38,31 @@ namespace SubjectNerd.Utilities
 			get
 			{
 				Material useMaterial = fallbackMaterial;
-				if (cameraMaterial != null)
-					useMaterial = cameraMaterial;
+				if (advancedSettings != null && advancedSettings.cameraMaterial != null)
+					useMaterial = advancedSettings.cameraMaterial;
 				return useMaterial;
+			}
+			set
+			{
+				if (advancedSettings.cameraMaterial != null)
+					advancedSettings.cameraMaterial.SetTexture("_MainTex", null);
+
+				advancedSettings.cameraMaterial = value;
+				if (advancedSettings.cameraMaterial == null) return;
+
+				if (renderTexture != null)
+					advancedSettings.cameraMaterial.SetTexture("_MainTex", renderTexture);
 			}
 		}
 
 		public RenderTexture RenderTexture { get { return renderTexture; } }
 		public int[] CameraSize { get { return new int[] {renderTexture.width, renderTexture.height}; } }
 
-		public void GetQuadBounds(out Vector2 min, out Vector2 max)
-		{
-			min = Vector2.zero - quadOffset;
-			max = Vector2.one + quadOffset;
-		}
-
 		private void Reset()
 		{
 			cam = GetComponent<Camera>();
+			float cameraPixelHeight = Mathf.FloorToInt(cam.aspect*2*pixelsPerUnit);
+			zoomLevel = Screen.height/cameraPixelHeight;
 		}
 
 		private void Start()
@@ -62,8 +75,10 @@ namespace SubjectNerd.Utilities
 				cam = GetComponent<Camera>();
 			if (cam == null)
 				enabled = false;
-			OnDisable();
-			OnEnable();
+
+			OnDisable(); // Force cleanup
+			if (enabled)
+				OnEnable();
 		}
 
 		protected virtual void OnEnable()
@@ -73,7 +88,6 @@ namespace SubjectNerd.Utilities
 
 			falseCamGO = new GameObject("False Camera") {hideFlags = HideFlags.HideAndDontSave};
 			falseCam = falseCamGO.AddComponent<Camera>();
-			falseCam.CopyFrom(cam);
 			falseCam.cullingMask = LayerMask.GetMask();
 
 			camDraw = falseCamGO.AddComponent<PixelCamDrawer>();
@@ -100,12 +114,12 @@ namespace SubjectNerd.Utilities
 				DestroyImmediate(fallbackMaterial);
 			fallbackShader = null;
 			cam.targetTexture = null;
+			cam.ResetAspect();
 			if (renderTexture != null)
 				DestroyImmediate(renderTexture);
 			if (falseCamGO != null)
 				DestroyImmediate(falseCamGO);
 			falseCam = null;
-			ResetCamera();
 		}
 
 		protected void SetupCamera()
@@ -147,8 +161,9 @@ namespace SubjectNerd.Utilities
 			cam.targetTexture = renderTexture;
 
 			// Set render texture as _MainTex on the materials
-			SetCameraMaterial(cameraMaterial);
 			fallbackMaterial.SetTexture("_MainTex", renderTexture);
+			if (advancedSettings != null)
+				CameraMaterial = advancedSettings.cameraMaterial;
 
 			lastScreenSize[0] = Screen.width;
 			lastScreenSize[1] = Screen.height;
@@ -156,29 +171,6 @@ namespace SubjectNerd.Utilities
 
 			cam.Render();
 			camDraw.DrawQuad();
-		}
-
-		public void SetCameraMaterial(Material cameraMat)
-		{
-			if (cameraMat == null) return;
-
-			cameraMaterial = cameraMat;
-			if (renderTexture != null)
-				cameraMaterial.SetTexture("_MainTex", renderTexture);
-		}
-
-		public void ForceRefresh()
-		{
-			lastScreenSize = new[] {0, 0};
-		}
-
-		public void CheckCamera()
-		{
-			bool didChange = Screen.width != lastScreenSize[0] ||
-							Screen.height != lastScreenSize[1] ||
-							Math.Abs(zoomLevel - lastZoomLevel) > float.Epsilon;
-			if (didChange)
-				SetupCamera();
 		}
 
 		/// <summary>
@@ -195,9 +187,9 @@ namespace SubjectNerd.Utilities
 			if (Mathf.Abs(size.y - height) > float.Epsilon)
 				height += 2;
 			// Make sure this isn't an odd number
-			if (width%2 != 0)
+			if (width%2 > 0)
 				width += 1;
-			if (height%2 != 0)
+			if (height%2 > 0)
 				height += 1;
 
 			width = Mathf.Max(2, width);
@@ -205,17 +197,44 @@ namespace SubjectNerd.Utilities
 			
 			return new[] {width, height};
 		}
-		
-		private void ResetCamera()
+
+		public void GetQuadBounds(out Vector2 min, out Vector2 max)
 		{
-			cam.ResetAspect();
-			//cam.rect = new Rect(Vector2.zero, Vector2.one);
-			//// Set the camera's size, according to pixel size
-			//float targetHeight = Screen.height / zoomLevel / zoomLevel;
-			//// Use pixel density to convert to world units
-			//targetHeight /= pixelsPerUnit;
-			//targetHeight /= 2f;
-			//cam.orthographicSize = targetHeight;
+			min = Vector2.zero - quadOffset;
+			max = Vector2.one + quadOffset;
+			if (advancedSettings == null)
+				return;
+
+			Vector2 aspectStretch = advancedSettings.aspectStretch;
+			if (aspectStretch.x < float.Epsilon || aspectStretch.y < float.Epsilon)
+				return;
+
+			Vector2 center = (min + max) / 2;
+			min -= center;
+			max -= center;
+			
+			min.x *= aspectStretch.x;
+			max.x *= aspectStretch.x;
+
+			min.y *= aspectStretch.y;
+			max.y *= aspectStretch.y;
+
+			min += center;
+			max += center;
+		}
+
+		public void ForceRefresh()
+		{
+			lastScreenSize = new[] {0, 0};
+		}
+
+		public void CheckCamera()
+		{
+			bool didChange = Screen.width != lastScreenSize[0] ||
+							Screen.height != lastScreenSize[1] ||
+							Math.Abs(zoomLevel - lastZoomLevel) > float.Epsilon;
+			if (didChange)
+				SetupCamera();
 		}
 	}
 }
