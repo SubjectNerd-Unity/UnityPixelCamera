@@ -1,10 +1,9 @@
 ﻿using UnityEngine;
-using System.Collections;
-using System.Collections.Generic;
 
 namespace SubjectNerd.Utilities
 {
 	[ExecuteInEditMode]
+	[AddComponentMenu("")]
 	public class PixelCamDrawer : MonoBehaviour
 	{
 		/*
