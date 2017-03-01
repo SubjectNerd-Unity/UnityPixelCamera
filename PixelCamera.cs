@@ -79,7 +79,7 @@ namespace SubjectNerd.Utilities
 			camDraw = falseCamGO.AddComponent<PixelCamDrawer>();
 			camDraw.SourceCamera = this;
 			
-			fallbackShader = Shader.Find("Hidden/PixelCamFallback");
+			fallbackShader = Shader.Find("Hidden/SubjectNerd/PixelCamFallback");
 			if (fallbackShader != null)
 			{
 				fallbackMaterial = new Material(fallbackShader)

@@ -1,4 +1,4 @@
-﻿Shader "Hidden/PixelCamFallback"
+﻿Shader "Hidden/SubjectNerd/PixelCamFallback"
 {
 	// Simple unlit shader with fog removed
 	Properties
