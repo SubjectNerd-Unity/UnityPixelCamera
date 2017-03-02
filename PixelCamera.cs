@@ -96,6 +96,22 @@ namespace SubjectNerd.Utilities
 			set { pixelsPerUnit = value; }
 		}
 
+		public float PerspectiveZ
+		{
+			get
+			{
+				if (advancedSettings == null)
+					return cam.farClipPlane*0.5f;
+				return advancedSettings.perspectiveZ;
+			}
+			set
+			{
+				if (advancedSettings == null)
+					return;
+				advancedSettings.perspectiveZ = value;
+			}
+		}
+
 		public Vector2 AspectStretch
 		{
 			get
