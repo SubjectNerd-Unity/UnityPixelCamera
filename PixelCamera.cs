@@ -218,15 +218,10 @@ namespace SubjectNerd.Utilities
 			// Find the settings to be used for drawing the GL quad
 			Vector2 pixelSize = new Vector2(pixelRenderSize[0], pixelRenderSize[1]) * zoomLevel;
 			if (cam.orthographic)
+			{
+				// Orthographic camera needs to use screen size when calculating quad offset
 				screenRenderSize = new Vector2(Screen.width, Screen.height);
 
-			quadOffset = pixelSize - screenRenderSize;
-			quadOffset /= 2;
-			quadOffset.x /= Screen.width;
-			quadOffset.y /= Screen.height;
-
-			if (cam.orthographic)
-			{
 				// Set the camera's size, according to pixel size
 				float targetHeight = pixelRenderSize[1];
 				// Use pixel density to convert to world units
@@ -235,6 +230,13 @@ namespace SubjectNerd.Utilities
 				// Change orthographic size so camera is sized to world unit 
 				cam.orthographicSize = targetHeight;
 			}
+
+			quadOffset = pixelSize - screenRenderSize;
+			quadOffset /= 2;
+			quadOffset.x /= Screen.width;
+			quadOffset.y /= Screen.height;
+			
+			// Set camera aspect ratio, since pixel aspect ratio will be different from current aspect
 			float targetAspect = (float)pixelRenderSize[0] / (float)pixelRenderSize[1];
 			cam.aspect = targetAspect;
 			
@@ -255,7 +257,7 @@ namespace SubjectNerd.Utilities
 			// Make main camera render into it
 			cam.targetTexture = renderTexture;
 
-			// Set render texture as _MainTex on the materials
+			// Set render texture as _MainTex on materials
 			fallbackMaterial.SetTexture("_MainTex", renderTexture);
 			if (advancedSettings != null)
 				CameraMaterial = advancedSettings.cameraMaterial;
