@@ -158,7 +158,7 @@ namespace SubjectNerd.Utilities
 		{
 			lastSettings = new CamSettings(AspectStretch, 0, cam.fieldOfView, cam.orthographic);
 
-			falseCamGO = new GameObject("False Camera") {hideFlags = HideFlags.DontSave};
+			falseCamGO = new GameObject("False Camera") {hideFlags = HideFlags.HideAndDontSave};
 			falseCam = falseCamGO.AddComponent<Camera>();
 			falseCam.cullingMask = LayerMask.GetMask();
 
