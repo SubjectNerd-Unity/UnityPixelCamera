@@ -30,6 +30,7 @@ namespace SubjectNerd.Utilities
 		protected Material fallbackMaterial;
 
 		protected int[] lastScreenSize;
+		protected Vector2 lastAspect;
 		protected float lastZoomLevel;
 		protected Vector2 quadOffset;
 
@@ -152,12 +153,13 @@ namespace SubjectNerd.Utilities
 
 		protected void SetupCamera()
 		{
+			var aspect = AspectStretch;
 			zoomLevel = Mathf.Max(0.05f, Mathf.Abs(zoomLevel))*Math.Sign(zoomLevel);
 			// "Physical" render size
 			Vector2 screenRenderSize = new Vector2(Screen.width, Screen.height);
 			screenRenderSize /= zoomLevel;
 			// Pixel render size
-			int[] pixelRenderSize = GetRenderTextureSize(screenRenderSize);
+			int[] pixelRenderSize = GetRenderTextureSize(screenRenderSize, aspect);
 
 			// Find the settings to be used for drawing the GL quad
 			Vector2 pixelSize = new Vector2(pixelRenderSize[0], pixelRenderSize[1]) * zoomLevel;
@@ -195,6 +197,7 @@ namespace SubjectNerd.Utilities
 
 			lastScreenSize[0] = Screen.width;
 			lastScreenSize[1] = Screen.height;
+			lastAspect = aspect;
 			lastZoomLevel = zoomLevel;
 
 			cam.Render();
@@ -205,10 +208,11 @@ namespace SubjectNerd.Utilities
 		/// The integer width and height of the texture to render to
 		/// </summary>
 		/// <returns></returns>
-		protected int[] GetRenderTextureSize(Vector2 size)
+		protected int[] GetRenderTextureSize(Vector2 size, Vector2 aspect)
 		{
-			int width = Mathf.FloorToInt(Mathf.Abs(size.x));
-			int height = Mathf.FloorToInt(Mathf.Abs(size.y));
+			int width = Mathf.FloorToInt(Mathf.Abs(size.x / aspect.x));
+			int height = Mathf.FloorToInt(Mathf.Abs(size.y / aspect.y));
+			
 			// Size is not integer, add padding
 			if (Math.Abs(size.x - width) > float.Epsilon)
 				width += 2;
@@ -260,6 +264,7 @@ namespace SubjectNerd.Utilities
 		{
 			bool didChange = Screen.width != lastScreenSize[0] ||
 							Screen.height != lastScreenSize[1] ||
+							AspectStretch != lastAspect ||
 							Math.Abs(zoomLevel - lastZoomLevel) > float.Epsilon;
 			if (didChange)
 				SetupCamera();
