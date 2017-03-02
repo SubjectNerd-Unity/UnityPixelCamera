@@ -39,7 +39,10 @@ namespace SubjectNerd.Utilities
 				bool equalAspect = other.aspect == aspect;
 				bool equalFoV = Math.Abs(other.fieldOfView - fieldOfView) <= float.Epsilon;
 				bool equalZoom = Math.Abs(other.zoomLevel - zoomLevel) <= float.Epsilon;
-				bool isEqual = equalScreen && equalAspect && equalFoV && equalZoom;
+				bool equalOrtho = other.isOrtho == isOrtho;
+				bool isEqual = equalScreen && equalAspect &&
+								equalFoV && equalZoom &&
+								equalOrtho;
 				//if (!isEqual)
 				//{
 				//	Debug.LogFormat("scr {0}, asp {1}, fov {2}, zoom {3}", equalScreen, equalAspect, equalFoV, equalZoom);
@@ -227,7 +230,7 @@ namespace SubjectNerd.Utilities
 			return screenRenderSize;
 		}
 		
-		protected void SetupCamera()
+		private void SetupCamera()
 		{
 			var aspect = AspectStretch;
 
@@ -307,8 +310,8 @@ namespace SubjectNerd.Utilities
 				height += 1;
 
 			// Just in case
-			width = Mathf.Max(2, width);
-			height = Mathf.Max(2, height);
+			width = Mathf.Clamp(width, 2, 4096);
+			height = Mathf.Clamp(height, 2, 4096);
 			
 			return new[] {width, height};
 		}
@@ -356,12 +359,13 @@ namespace SubjectNerd.Utilities
 			lastSettings.screenSize = new [] {0, 0};
 		}
 
-		public void CheckCamera()
+		public bool CheckCamera()
 		{
 			var currentSettings = new CamSettings(AspectStretch, zoomLevel, cam.fieldOfView, cam.orthographic);
 			bool didChange = currentSettings.Equals(lastSettings) == false;
 			if (didChange)
 				SetupCamera();
+			return didChange;
 		}
 	}
 }
