@@ -35,6 +35,7 @@ This package simplifies making a Unity camera render to exact pixel units, for u
 * Pixel Camera will not automatically zoom in or out according to the window/viewport size.
 * Camera `Viewport Rect` settings are not taken into account.
 * With a perspective camera, zoom levels below 1 will render a black border.
+* Perspective camera rendering is unoptimized. High `Field of View` settings will generate unreasonably large RenderTextures. Use with caution.
 
 ## Technical Details ##
 
