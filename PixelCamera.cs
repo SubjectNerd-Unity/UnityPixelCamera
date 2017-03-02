@@ -12,6 +12,35 @@ namespace SubjectNerd.Utilities
 		{
 			public Material cameraMaterial;
 			public Vector2 aspectStretch = Vector2.one;
+			public float perspectiveZ = 10;
+		}
+
+		protected struct CamSettings
+		{
+			public int[] screenSize;
+			public Vector2 aspect;
+			public float zoomLevel;
+			public float fieldOfView;
+			public bool  isOrtho;
+
+			public CamSettings(Vector2 aspect, float zoomLevel, float fieldOfView, bool isOrtho)
+			{
+				screenSize = new[] {Screen.width, Screen.height};
+				this.aspect = aspect;
+				this.zoomLevel = zoomLevel;
+				this.fieldOfView = fieldOfView;
+				this.isOrtho = isOrtho;
+			}
+
+			public bool Equals(CamSettings other)
+			{
+				bool isEqual =	other.screenSize[0] == screenSize[0] &&
+								other.screenSize[1] == screenSize[1] &&
+								other.aspect != aspect &&
+								Math.Abs(other.fieldOfView - fieldOfView) < float.Epsilon &&
+								Math.Abs(other.zoomLevel - zoomLevel) < float.Epsilon;
+				return isEqual;
+			}
 		}
 
 		[SerializeField] protected Camera cam;
@@ -28,10 +57,9 @@ namespace SubjectNerd.Utilities
 
 		protected Shader fallbackShader;
 		protected Material fallbackMaterial;
+		
+		protected CamSettings lastSettings;
 
-		protected int[] lastScreenSize;
-		protected Vector2 lastAspect;
-		protected float lastZoomLevel;
 		protected Vector2 quadOffset;
 
 		public Material CameraMaterial
@@ -112,10 +140,9 @@ namespace SubjectNerd.Utilities
 
 		protected virtual void OnEnable()
 		{
-			lastScreenSize = new[] {0, 0};
-			lastZoomLevel = 0;
+			lastSettings = new CamSettings(AspectStretch, 0, cam.fieldOfView, cam.orthographic);
 
-			falseCamGO = new GameObject("False Camera") {hideFlags = HideFlags.HideAndDontSave};
+			falseCamGO = new GameObject("False Camera") {hideFlags = HideFlags.DontSave};
 			falseCam = falseCamGO.AddComponent<Camera>();
 			falseCam.cullingMask = LayerMask.GetMask();
 
@@ -151,32 +178,64 @@ namespace SubjectNerd.Utilities
 			falseCam = null;
 		}
 
+		protected Vector2 GetScreenRenderSize()
+		{
+			// For orthographic camera, physical render size is based on screen pixels
+			Vector2 screenRenderSize = new Vector2(Screen.width, Screen.height);
+			screenRenderSize /= zoomLevel;
+
+			// For perspective camera, physical render is based on world unit height
+			// in terms of fustrum distance, converted to pixels
+			if (cam.orthographic == false)
+			{
+				// Reasonable fakery to use half of far clip as distance
+				// if advanced settings doesn't exist yet
+				float zDistance = cam.farClipPlane * 0.5f; 
+				if (advancedSettings != null)
+					zDistance = advancedSettings.perspectiveZ;
+
+				var frustumHeight = 2.0f * zDistance * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
+				var frustumWidth = frustumHeight* cam.aspect;
+
+				screenRenderSize.x = frustumWidth;
+				screenRenderSize.y = frustumHeight;
+				screenRenderSize *= pixelsPerUnit;
+			}
+
+			return screenRenderSize;
+		}
+		
 		protected void SetupCamera()
 		{
 			var aspect = AspectStretch;
+
 			zoomLevel = Mathf.Max(0.05f, Mathf.Abs(zoomLevel))*Math.Sign(zoomLevel);
 			// "Physical" render size
-			Vector2 screenRenderSize = new Vector2(Screen.width, Screen.height);
-			screenRenderSize /= zoomLevel;
+			Vector2 screenRenderSize = GetScreenRenderSize();
 			// Pixel render size
 			int[] pixelRenderSize = GetRenderTextureSize(screenRenderSize, aspect);
 
 			// Find the settings to be used for drawing the GL quad
 			Vector2 pixelSize = new Vector2(pixelRenderSize[0], pixelRenderSize[1]) * zoomLevel;
-			screenRenderSize = new Vector2(Screen.width, Screen.height);
+			if (cam.orthographic)
+				screenRenderSize = new Vector2(Screen.width, Screen.height);
+
 			quadOffset = pixelSize - screenRenderSize;
 			quadOffset /= 2;
 			quadOffset.x /= Screen.width;
 			quadOffset.y /= Screen.height;
 
-			// Set the camera's size, according to pixel size
-			float targetHeight = pixelRenderSize[1];
-			// Use pixel density to convert to world units
-			targetHeight /= pixelsPerUnit;
-			targetHeight /= 2f;
+			if (cam.orthographic)
+			{
+				// Set the camera's size, according to pixel size
+				float targetHeight = pixelRenderSize[1];
+				// Use pixel density to convert to world units
+				targetHeight /= pixelsPerUnit;
+				targetHeight /= 2f;
+				// Change orthographic size so camera is sized to world unit 
+				cam.orthographicSize = targetHeight;
+			}
 			float targetAspect = (float)pixelRenderSize[0] / (float)pixelRenderSize[1];
-			// Change orthographic size so camera is sized to world unit 
-			cam.orthographicSize = targetHeight;
 			cam.aspect = targetAspect;
 
 			cam.targetTexture = null;
@@ -194,11 +253,8 @@ namespace SubjectNerd.Utilities
 			fallbackMaterial.SetTexture("_MainTex", renderTexture);
 			if (advancedSettings != null)
 				CameraMaterial = advancedSettings.cameraMaterial;
-
-			lastScreenSize[0] = Screen.width;
-			lastScreenSize[1] = Screen.height;
-			lastAspect = aspect;
-			lastZoomLevel = zoomLevel;
+			
+			lastSettings = new CamSettings(aspect, zoomLevel, cam.fieldOfView, cam.orthographic);
 
 			cam.Render();
 			camDraw.DrawQuad();
@@ -224,6 +280,7 @@ namespace SubjectNerd.Utilities
 			if (height%2 > 0)
 				height += 1;
 
+			// Just in case
 			width = Mathf.Max(2, width);
 			height = Mathf.Max(2, height);
 			
@@ -257,15 +314,13 @@ namespace SubjectNerd.Utilities
 
 		public void ForceRefresh()
 		{
-			lastScreenSize = new[] {0, 0};
+			lastSettings.screenSize = new [] {0, 0};
 		}
 
 		public void CheckCamera()
 		{
-			bool didChange = Screen.width != lastScreenSize[0] ||
-							Screen.height != lastScreenSize[1] ||
-							AspectStretch != lastAspect ||
-							Math.Abs(zoomLevel - lastZoomLevel) > float.Epsilon;
+			var currentSettings = new CamSettings(AspectStretch, zoomLevel, cam.fieldOfView, cam.orthographic);
+			bool didChange = currentSettings.Equals(lastSettings) == false;
 			if (didChange)
 				SetupCamera();
 		}
