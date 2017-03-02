@@ -67,6 +67,8 @@ namespace SubjectNerd.Utilities
 		protected CamSettings lastSettings;
 
 		protected Vector2 quadOffset;
+		public Vector2 QuadMin { get; protected set; }
+		public Vector2 QuadMax { get; protected set; }
 
 		public Material CameraMaterial
 		{
@@ -253,11 +255,7 @@ namespace SubjectNerd.Utilities
 			}
 
 			// Find the settings to be used for drawing the GL quad
-			Vector2 pixelSize = new Vector2(pixelRenderSize[0], pixelRenderSize[1]) * zoomLevel;
-			quadOffset = pixelSize - screenRenderSize;
-			quadOffset /= 2;
-			quadOffset.x /= Screen.width;
-			quadOffset.y /= Screen.height;
+			CalculateQuad(screenRenderSize, pixelRenderSize);
 			
 			// Important to release current render texture
 			cam.targetTexture = null;
@@ -315,12 +313,22 @@ namespace SubjectNerd.Utilities
 			return new[] {width, height};
 		}
 
-		public void GetQuadBounds(out Vector2 min, out Vector2 max)
+		private void CalculateQuad(Vector2 screenRenderSize, int[] pixelRenderSize)
 		{
-			min = Vector2.zero - quadOffset;
-			max = Vector2.one + quadOffset;
+			Vector2 pixelSize = new Vector2(pixelRenderSize[0], pixelRenderSize[1]) * zoomLevel;
+			quadOffset = pixelSize - screenRenderSize;
+			quadOffset /= 2;
+			quadOffset.x /= Screen.width;
+			quadOffset.y /= Screen.height;
+
+			Vector2 min = Vector2.zero - quadOffset;
+			Vector2 max = Vector2.one + quadOffset;
 			if (advancedSettings == null)
+			{
+				QuadMin = min;
+				QuadMax = max;
 				return;
+			}
 
 			Vector2 aspectStretch = advancedSettings.aspectStretch;
 			if (aspectStretch.x < float.Epsilon || aspectStretch.y < float.Epsilon)
@@ -329,7 +337,7 @@ namespace SubjectNerd.Utilities
 			Vector2 center = (min + max) / 2;
 			min -= center;
 			max -= center;
-			
+
 			min.x *= aspectStretch.x;
 			max.x *= aspectStretch.x;
 
@@ -338,6 +346,9 @@ namespace SubjectNerd.Utilities
 
 			min += center;
 			max += center;
+
+			QuadMin = min;
+			QuadMax = max;
 		}
 
 		public void ForceRefresh()

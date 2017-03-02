@@ -24,9 +24,8 @@ namespace SubjectNerd.Utilities
 			if (SourceCamera == null || SourceCamera.CameraMaterial == null)
 				return;
 
-			Vector2 min;
-			Vector2 max;
-			SourceCamera.GetQuadBounds(out min, out max);
+			Vector2 min = SourceCamera.QuadMin;
+			Vector2 max = SourceCamera.QuadMax;
 
 			float zOffset = -0.1f;
 
