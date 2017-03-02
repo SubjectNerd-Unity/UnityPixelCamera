@@ -34,11 +34,17 @@ namespace SubjectNerd.Utilities
 
 			public bool Equals(CamSettings other)
 			{
-				bool isEqual =	other.screenSize[0] == screenSize[0] &&
-								other.screenSize[1] == screenSize[1] &&
-								other.aspect != aspect &&
-								Math.Abs(other.fieldOfView - fieldOfView) < float.Epsilon &&
-								Math.Abs(other.zoomLevel - zoomLevel) < float.Epsilon;
+				bool equalScreen = other.screenSize[0] == screenSize[0] &&
+				                   other.screenSize[1] == screenSize[1];
+				bool equalAspect = other.aspect == aspect;
+				bool equalFoV = Math.Abs(other.fieldOfView - fieldOfView) <= float.Epsilon;
+				bool equalZoom = Math.Abs(other.zoomLevel - zoomLevel) <= float.Epsilon;
+				bool isEqual = equalScreen && equalAspect && equalFoV && equalZoom;
+				//if (!isEqual)
+				//{
+				//	Debug.LogFormat("scr {0}, asp {1}, fov {2}, zoom {3}", equalScreen, equalAspect, equalFoV, equalZoom);
+				//	Debug.LogFormat("Aspect: {0}, Other: {1}", aspect, other.aspect);
+				//}
 				return isEqual;
 			}
 		}
@@ -204,11 +210,9 @@ namespace SubjectNerd.Utilities
 			// in terms of fustrum distance, converted to pixels
 			if (cam.orthographic == false)
 			{
-				// Reasonable fakery to use half of far clip as distance
-				// if advanced settings doesn't exist yet
-				float zDistance = cam.farClipPlane * 0.5f; 
-				if (advancedSettings != null)
-					zDistance = advancedSettings.perspectiveZ;
+				cam.aspect = (float) Screen.width / Screen.height;
+
+				float zDistance = PerspectiveZ;
 
 				var frustumHeight = 2.0f * zDistance * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
 				var frustumWidth = frustumHeight* cam.aspect;
@@ -226,13 +230,14 @@ namespace SubjectNerd.Utilities
 			var aspect = AspectStretch;
 
 			zoomLevel = Mathf.Max(0.05f, Mathf.Abs(zoomLevel))*Math.Sign(zoomLevel);
-			// "Physical" render size
+			// "Physical" pixel render size
 			Vector2 screenRenderSize = GetScreenRenderSize();
 			// Pixel render size
 			int[] pixelRenderSize = GetRenderTextureSize(screenRenderSize, aspect);
 
-			// Find the settings to be used for drawing the GL quad
-			Vector2 pixelSize = new Vector2(pixelRenderSize[0], pixelRenderSize[1]) * zoomLevel;
+			float targetAspect = (float)pixelRenderSize[0] / (float)pixelRenderSize[1];
+			cam.aspect = targetAspect;
+
 			if (cam.orthographic)
 			{
 				// Orthographic camera needs to use screen size when calculating quad offset
@@ -247,14 +252,12 @@ namespace SubjectNerd.Utilities
 				cam.orthographicSize = targetHeight;
 			}
 
+			// Find the settings to be used for drawing the GL quad
+			Vector2 pixelSize = new Vector2(pixelRenderSize[0], pixelRenderSize[1]) * zoomLevel;
 			quadOffset = pixelSize - screenRenderSize;
 			quadOffset /= 2;
 			quadOffset.x /= Screen.width;
 			quadOffset.y /= Screen.height;
-			
-			// Set camera aspect ratio, since pixel aspect ratio will be different from current aspect
-			float targetAspect = (float)pixelRenderSize[0] / (float)pixelRenderSize[1];
-			cam.aspect = targetAspect;
 			
 			// Important to release current render texture
 			cam.targetTexture = null;
