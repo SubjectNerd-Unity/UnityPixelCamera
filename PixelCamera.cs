@@ -237,9 +237,15 @@ namespace SubjectNerd.Utilities
 			}
 			float targetAspect = (float)pixelRenderSize[0] / (float)pixelRenderSize[1];
 			cam.aspect = targetAspect;
-
+			
+			// Important to release current render texture
 			cam.targetTexture = null;
-			// Create the render texture
+			fallbackMaterial.SetTexture("_MainTex", null);
+			if (advancedSettings != null && advancedSettings.cameraMaterial != null)
+				advancedSettings.cameraMaterial.SetTexture("_MainTex", null);
+			renderTexture.Release();
+
+			// Create new render texture
 			renderTexture = new RenderTexture(pixelRenderSize[0], pixelRenderSize[1], 0)
 			{
 				useMipMap = true,
