@@ -261,7 +261,8 @@ namespace SubjectNerd.Utilities
 			fallbackMaterial.SetTexture("_MainTex", null);
 			if (advancedSettings != null && advancedSettings.cameraMaterial != null)
 				advancedSettings.cameraMaterial.SetTexture("_MainTex", null);
-			renderTexture.Release();
+			if (renderTexture != null)
+				renderTexture.Release();
 
 			// Create new render texture
 			renderTexture = new RenderTexture(pixelRenderSize[0], pixelRenderSize[1], 0)
