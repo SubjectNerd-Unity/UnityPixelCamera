@@ -10,8 +10,13 @@ namespace SubjectNerd.Utilities
 		[Serializable]
 		protected class AdvancedSettings
 		{
+			[Tooltip("Material to draw output render with")]
 			public Material cameraMaterial;
+			[Tooltip("Stretches output display, for non square pixels")]
 			public Vector2 aspectStretch = Vector2.one;
+			[Tooltip("Scales down camera render size")]
+			public float downSample = 1;
+			[Tooltip("Z distance to draw as pixel perfect for perspective camera.")]
 			public float perspectiveZ = 10;
 		}
 
@@ -20,16 +25,24 @@ namespace SubjectNerd.Utilities
 			public int[] screenSize;
 			public Vector2 aspect;
 			public float zoomLevel;
+			public float pixelsPerUnit;
+			public float zDistance;
+			public float downsample;
 			public float fieldOfView;
+			public float farPlane;
 			public bool  isOrtho;
 
-			public CamSettings(Vector2 aspect, float zoomLevel, float fieldOfView, bool isOrtho)
+			public CamSettings(PixelCamera pixelCam, Camera cam)
 			{
 				screenSize = new[] {Screen.width, Screen.height};
-				this.aspect = aspect;
-				this.zoomLevel = zoomLevel;
-				this.fieldOfView = fieldOfView;
-				this.isOrtho = isOrtho;
+				this.aspect = pixelCam.AspectStretch;
+				this.zoomLevel = pixelCam.ZoomLevel;
+				this.pixelsPerUnit = pixelCam.pixelsPerUnit;
+				this.zDistance = pixelCam.PerspectiveZ;
+				this.downsample = pixelCam.DownSample;
+				this.fieldOfView = cam.fieldOfView;
+				this.isOrtho = cam.orthographic;
+				this.farPlane = cam.farClipPlane;
 			}
 
 			public bool Equals(CamSettings other)
@@ -37,17 +50,21 @@ namespace SubjectNerd.Utilities
 				bool equalScreen = other.screenSize[0] == screenSize[0] &&
 				                   other.screenSize[1] == screenSize[1];
 				bool equalAspect = other.aspect == aspect;
-				bool equalFoV = Math.Abs(other.fieldOfView - fieldOfView) <= float.Epsilon;
-				bool equalZoom = Math.Abs(other.zoomLevel - zoomLevel) <= float.Epsilon;
-				bool equalOrtho = other.isOrtho == isOrtho;
-				bool isEqual = equalScreen && equalAspect &&
-								equalFoV && equalZoom &&
-								equalOrtho;
-				//if (!isEqual)
-				//{
-				//	Debug.LogFormat("scr {0}, asp {1}, fov {2}, zoom {3}", equalScreen, equalAspect, equalFoV, equalZoom);
-				//	Debug.LogFormat("Aspect: {0}, Other: {1}", aspect, other.aspect);
-				//}
+				
+				bool isEqual = other.isOrtho == isOrtho &&
+				               equalScreen &&
+							   equalAspect &&
+				               Mathf.Approximately(other.zoomLevel, zoomLevel) &&
+				               Mathf.Approximately(other.pixelsPerUnit, pixelsPerUnit) &&
+							   Mathf.Approximately(other.downsample, downsample);
+
+				if (isEqual && isOrtho == false)
+				{
+					isEqual &= Mathf.Approximately(other.zDistance, zDistance) &&
+					           Mathf.Approximately(other.fieldOfView, fieldOfView) &&
+					           Mathf.Approximately(other.farPlane, farPlane);
+				}
+
 				return isEqual;
 			}
 		}
@@ -73,6 +90,9 @@ namespace SubjectNerd.Utilities
 		public Vector2 QuadMin { get; protected set; }
 		public Vector2 QuadMax { get; protected set; }
 
+		/// <summary>
+		/// Material to draw output render with
+		/// </summary>
 		public Material CameraMaterial
 		{
 			get
@@ -107,22 +127,29 @@ namespace SubjectNerd.Utilities
 			set { pixelsPerUnit = value; }
 		}
 
+		/// <summary>
+		/// For perspective cameras. Z distance between near and far plane to scale as pixel perfect.
+		/// </summary>
 		public float PerspectiveZ
 		{
 			get
 			{
 				if (advancedSettings == null)
 					return cam.farClipPlane*0.5f;
-				return advancedSettings.perspectiveZ;
+				advancedSettings.perspectiveZ = Mathf.Clamp(advancedSettings.perspectiveZ, cam.nearClipPlane, cam.farClipPlane);
+                return advancedSettings.perspectiveZ;
 			}
 			set
 			{
 				if (advancedSettings == null)
 					return;
-				advancedSettings.perspectiveZ = value;
+				advancedSettings.perspectiveZ = Mathf.Clamp(value, cam.nearClipPlane, cam.farClipPlane); ;
 			}
 		}
 
+		/// <summary>
+		/// Stretches output display, for non square pixels
+		/// </summary>
 		public Vector2 AspectStretch
 		{
 			get
@@ -139,8 +166,44 @@ namespace SubjectNerd.Utilities
 			}
 		}
 
+		/// <summary>
+		/// Scales down camera render size. Clamped at minimum value of 1.
+		/// </summary>
+		public float DownSample
+		{
+			get
+			{
+				if (advancedSettings == null)
+					return 1f;
+				advancedSettings.downSample = Mathf.Max(1f, advancedSettings.downSample);
+				return advancedSettings.downSample;
+			}
+			set
+			{
+				if (advancedSettings == null)
+					return;
+				advancedSettings.downSample = Mathf.Max(1f, value);
+			}
+		}
+
+		/// <summary>
+		/// The render texture camera is being drawn into
+		/// </summary>
 		public RenderTexture RenderTexture { get { return renderTexture; } }
-		public int[] CameraSize { get { return new int[] {renderTexture.width, renderTexture.height}; } }
+
+		/// <summary>
+		/// Pixel size of the camera
+		/// </summary>
+		public int[] CameraSize
+		{
+			get
+			{
+				if (renderTexture == null)
+					return new[] {0, 0};
+
+				return new[] {renderTexture.width, renderTexture.height};
+			}
+		}
 
 		private void Reset()
 		{
@@ -167,7 +230,11 @@ namespace SubjectNerd.Utilities
 
 		protected virtual void OnEnable()
 		{
-			lastSettings = new CamSettings(AspectStretch, 0, cam.fieldOfView, cam.orthographic);
+			lastSettings = new CamSettings(this, cam)
+			{
+				screenSize = new []{0, 0}
+			};
+			ForceRefresh();
 
 			falseCamGO = new GameObject("False Camera") {hideFlags = HideFlags.HideAndDontSave};
 			falseCam = falseCamGO.AddComponent<Camera>();
@@ -205,40 +272,15 @@ namespace SubjectNerd.Utilities
 			falseCam = null;
 		}
 
-		protected Vector2 GetScreenRenderSize()
+		private void SetupCamera(CamSettings settings)
 		{
-			// For orthographic camera, physical render size is based on screen pixels
-			Vector2 screenRenderSize = new Vector2(Screen.width, Screen.height);
-			screenRenderSize /= zoomLevel;
-
-			// For perspective camera, physical render is based on world unit height
-			// in terms of fustrum distance, converted to pixels
-			if (cam.orthographic == false)
-			{
-				cam.aspect = (float) Screen.width / Screen.height;
-
-				float zDistance = PerspectiveZ;
-
-				var frustumHeight = 2.0f * zDistance * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
-				var frustumWidth = frustumHeight* cam.aspect;
-
-				screenRenderSize.x = frustumWidth;
-				screenRenderSize.y = frustumHeight;
-				screenRenderSize *= pixelsPerUnit;
-			}
-
-			return screenRenderSize;
-		}
-		
-		private void SetupCamera()
-		{
-			var aspect = AspectStretch;
+			var aspect = settings.aspect;
 
 			zoomLevel = Mathf.Max(0.05f, Mathf.Abs(zoomLevel))*Math.Sign(zoomLevel);
 			// "Physical" pixel render size
 			Vector2 screenRenderSize = GetScreenRenderSize();
 			// Pixel render size
-			int[] pixelRenderSize = GetRenderTextureSize(screenRenderSize, aspect);
+			int[] pixelRenderSize = GetRenderTextureSize(screenRenderSize, settings.aspect);
 
 			float targetAspect = (float)pixelRenderSize[0] / (float)pixelRenderSize[1];
 			cam.aspect = targetAspect;
@@ -269,7 +311,9 @@ namespace SubjectNerd.Utilities
 				renderTexture.Release();
 
 			// Create new render texture
-			renderTexture = new RenderTexture(pixelRenderSize[0], pixelRenderSize[1], 0)
+			Vector2 renderSize = new Vector2(pixelRenderSize[0], pixelRenderSize[1]) / settings.downsample;
+			int[] actualRenderSize = GetRenderTextureSize(renderSize, Vector2.one);
+			renderTexture = new RenderTexture(actualRenderSize[0], actualRenderSize[1], 0)
 			{
 				useMipMap = true,
 				filterMode = FilterMode.Point,
@@ -282,11 +326,44 @@ namespace SubjectNerd.Utilities
 			fallbackMaterial.SetTexture("_MainTex", renderTexture);
 			if (advancedSettings != null)
 				CameraMaterial = advancedSettings.cameraMaterial;
-			
-			lastSettings = new CamSettings(aspect, zoomLevel, cam.fieldOfView, cam.orthographic);
+
+			lastSettings = settings;
 
 			cam.Render();
 			camDraw.DrawQuad();
+		}
+
+		private float GetPerspectiveHeight(float z)
+		{
+			var frustumHeight = 2.0f * z * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
+			return frustumHeight;
+		}
+
+		protected Vector2 GetScreenRenderSize()
+		{
+			// For orthographic camera, physical render size is based on screen pixels
+			Vector2 screenRenderSize = new Vector2(Screen.width, Screen.height);
+			screenRenderSize /= zoomLevel;
+
+			// For perspective camera, physical render is based on world unit height
+			// in terms of fustrum distance, converted to pixels
+			if (cam.orthographic == false)
+			{
+				cam.aspect = (float) Screen.width / Screen.height;
+
+				float scale = Mathf.InverseLerp(cam.nearClipPlane, cam.farClipPlane, PerspectiveZ);
+				float maxHeight = GetPerspectiveHeight(cam.farClipPlane);
+				float minHeight = GetPerspectiveHeight(cam.nearClipPlane);
+
+				float height = Mathf.Lerp(minHeight, maxHeight, scale);
+				float width = height*cam.aspect;
+
+				screenRenderSize.x = width;
+				screenRenderSize.y = height;
+				screenRenderSize *= pixelsPerUnit;
+			}
+
+			return screenRenderSize;
 		}
 
 		/// <summary>
@@ -361,10 +438,10 @@ namespace SubjectNerd.Utilities
 
 		public bool CheckCamera()
 		{
-			var currentSettings = new CamSettings(AspectStretch, zoomLevel, cam.fieldOfView, cam.orthographic);
+			var currentSettings = new CamSettings(this, cam);
 			bool didChange = currentSettings.Equals(lastSettings) == false;
 			if (didChange)
-				SetupCamera();
+				SetupCamera(currentSettings);
 			return didChange;
 		}
 	}
