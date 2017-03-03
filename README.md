@@ -7,7 +7,7 @@ This package simplifies making a Unity camera render to exact pixel units, for u
 ## Features ##
 
 * Simple setup
-* Perspective camera support
+* Experimental perspective camera support
 
 *Standard unity camera*
 
@@ -26,8 +26,9 @@ This package simplifies making a Unity camera render to exact pixel units, for u
 ## Advanced Settings ##
 
 * __Camera Material__ - A material applied to the camera output, allows shaders to modify the image. The camera output is set as the `_MainTex` of the material.
-* __Aspect Stretch__ - Apply a stretch to the output, allowing the display to be non square pixels.
-* __Perspective Z__ - Only for perspective cameras. The Z distance from the camera that is rendered as pixel perfect.
+* __Aspect Stretch__ - Apply a stretch to the output, allows the display to be non square pixels.
+* __Down Sample__ - Scales down the render resolution, making the output blockier.
+* __Perspective Z__ - Only for perspective cameras. The Z distance between the near and far clip planes, that is rendered as pixel perfect.
 
 ## Caveats ##
 
@@ -65,13 +66,17 @@ __AspectStretch__ : Vector2
 
 An additional stretch applied to the camera, allows camera to render as non square pixels.
 
+__DownSample__ : float
+
+Scales down the render resolution, makes the output blockier. Minimum value is clamped at 1.
+
 __PerspectiveZ__ : float
 
-With a perspective camera, the distance from the camera that is rendered as pixel perfect.
+With a perspective camera, the distance between the camera near and far planes that is rendered as pixel perfect. Value is clamped between the near and far plane values.
 
 __RenderTexture__ : RenderTexture, read only
 
-Access to the RenderTexture used as the camera output.
+Access the RenderTexture used as the camera output.
 
 __CameraSize__ : int[], read only
 
@@ -82,3 +87,7 @@ Actual pixel size of the camera, as an integer array.
 __ForceRefresh()__ : void
 
 Force the camera to recalculate rendering sizes.
+
+__CheckCamera()__ : bool
+
+Checks camera settings. If different from the last camera settings, will setup the camera again. Returns true if settings changed.
