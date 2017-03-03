@@ -17,6 +17,10 @@ This package simplifies making a Unity camera render to exact pixel units, for u
 
 ![Pixel camera](http://i.imgur.com/VKhQrfu.gif)
 
+## Installation ##
+
+Clone the repository or download the UnityPackage of the [latest release](https://github.com/ChemiKhazi/UnityPixelCamera/releases/latest). The `PixelCamera` directory can be moved to your location of choice in your unity project.
+
 ## Basic Usage ##
 
 1. Attach the `Pixel Camera` script to an existing camera.
@@ -35,14 +39,18 @@ This package simplifies making a Unity camera render to exact pixel units, for u
 * If a camera or sprite is out of alignment with the pixel grid, unwanted artifacts may occur.
 * Pixel Camera will not automatically zoom in or out according to the window/viewport size.
 * Camera `Viewport Rect` settings are not taken into account.
-* With a perspective camera, zoom levels below 1 will render a black border.
-* Perspective camera rendering is unoptimized. High `Field of View` settings will generate unreasonably large RenderTextures. Use with caution.
+
+## Perspective Camera Notes ##
+* A zoom level below 1 will leave a border on the edge of the screen.
+* Perspective camera is unoptimized. A high `Field of View` setting will generate unreasonably large RenderTextures. Use with caution.
 
 ## Technical Details ##
 
 Pixel camera takes the size of the screen and finds the render size required to cover the screen in a pixel perfect manner, at the given settings.
 
-A `RenderTexture` of the calculated render size is created, and if needed the camera settings are modified so the render fits the calculated size. The camera output is sent to the `RenderTexture`.
+A `RenderTexture` of the calculated render size is created, and if needed the camera settings are modified so the render fits the calculated size.
+
+The camera output is sent to the `RenderTexture`.
 
 A dummy camera that renders nothing is created, and the `OnPostRender()` function is used to draw the output of the attached camera onto the screen using GL commands.
 
@@ -90,4 +98,4 @@ Force the camera to recalculate rendering sizes.
 
 __CheckCamera()__ : bool
 
-Checks camera settings. If different from the last camera settings, will setup the camera again. Returns true if settings changed.
+Checks camera settings. If different from the last camera settings used, camera will be setup again. Returns `true` when settings have changed.
